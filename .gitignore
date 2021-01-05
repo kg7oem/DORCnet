@@ -1,0 +1,8 @@
+author*.pl
+*.swp
+
+Build
+_build/
+blib/
+lib/Net/AX25.c
+lib/Net/AX25.o
