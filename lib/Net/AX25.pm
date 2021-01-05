@@ -12,6 +12,9 @@ our @EXPORT_OK = qw(
     AF_AX25 ETH_P_AX25 PF_PACKET SOL_AX25
     SOCK_DGRAM SOCK_RAW SOCK_PACKET SOCK_SEQPACKET
     bind connect socket
+    from_addr to_addr int_name
+    is_i_frame is_ui_frame is_u_frame is_s_frame
+    pid_field
 );
 
 BEGIN {
@@ -76,8 +79,8 @@ sub is_u_frame {
     return _is_u_frame($_[0], length($_[0]));
 }
 
-sub pid {
-    return _pid($_[0], length($_[0]));
+sub pid_field {
+    return _pid_field($_[0], length($_[0]));
 }
 
 sub socket {

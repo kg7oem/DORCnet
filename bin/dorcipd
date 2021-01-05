@@ -1,0 +1,65 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use v5.10;
+
+use Data::Dumper;
+use Net::AX25 qw(PF_PACKET SOCK_PACKET ETH_P_AX25 is_ui_frame from_addr to_addr pid_field);
+use IO::Async::Handle;
+use IO::Async::Loop;
+
+use DORCNet qw(DORCIP_NUM DORCIP_AX25_ADDR);
+
+main();
+
+sub main {
+    our $LOOP = IO::Async::Loop->new;
+
+    make_channel_monitor();
+
+    $LOOP->run;
+
+    return 0;
+}
+
+sub make_channel_monitor {
+    socket(my $sock, PF_PACKET, SOCK_PACKET, ETH_P_AX25) or die "socket(PF_PACKET, SOCK_PACKET, ETH_P_AX25): $!";
+
+    my $handle = IO::Async::Handle->new(
+        read_handle => $sock,
+        on_read_ready => \&handle_monitor_channel,
+        on_closed => sub { die "info monitor socket went away" },
+    );
+
+    our $LOOP;
+    $LOOP->add($handle);
+
+    return $handle;
+}
+
+sub handle_monitor_channel {
+    my ($notifier) = @_;
+    my $handle = $notifier->read_handle;
+    my $interface = recv($handle, my $packet, 4096, 0) or die "recv(): $!";
+    my $from = from_addr($packet);
+    my $to = to_addr($packet);
+
+    say "ax0 $from -> $to";
+
+    return if handle_network_info($interface, $packet);
+}
+
+sub handle_network_info {
+    my ($interface, $packet) = @_;
+
+    my $to = to_addr($packet);
+    say "  got: '$to' want '", DORCIP_AX25_ADDR, "'";
+    return unless $to eq DORCIP_AX25_ADDR;
+
+    my $pid = pid_field($packet);
+    say "  got: '$pid' want: '", DORCIP_NUM, "'";
+    return unless pid_field($packet) == DORCIP_NUM;
+
+    say "  DORCIP";
+}

@@ -108,6 +108,20 @@ OUTPUT:
     RETVAL
 
 const char *
+_info_field(const char * address, size_t len)
+CODE:
+    static __thread char buf[AX25_INFO_FIELD_LEN + 1];
+    const char * start_p = address + AX25_INFO_FIELD_OFFSET;
+    size_t copy_bytes = len - AX25_FCS_FIELD_OFFSET;
+
+    memset(buf, 0, AX25_INFO_FIELD_LEN + 1);
+    memcpy(buf, start_p, copy_bytes);
+
+    RETVAL = buf;
+OUTPUT:
+    RETVAL
+
+const char *
 _int_name(const char * address, size_t len)
 CODE:
     static __thread char buf[AX25_INT_NAME_LEN + 1];
@@ -192,7 +206,7 @@ OUTPUT:
     RETVAL
 
 unsigned int
-_pid(const char * buf, size_t len)
+_pid_field(const char * buf, size_t len)
 CODE:
 
     if (len < AX25_PID_FIELD_OFFSET) {
