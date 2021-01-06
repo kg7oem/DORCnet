@@ -14,7 +14,7 @@ our @EXPORT_OK = qw(
     bind connect socket
     from_addr to_addr int_name
     is_i_frame is_ui_frame is_u_frame is_s_frame
-    pid_field
+    pid_field info_field
 );
 
 BEGIN {
@@ -51,6 +51,10 @@ sub from_addr {
     return _from_addr($_[0], length($_[0]));
 }
 
+sub info_field {
+    return _info_field($_[0], length($_[0]));
+}
+
 sub int_name {
     return _int_name($_[0], length($_[0]));
 }
@@ -81,6 +85,15 @@ sub is_u_frame {
 
 sub pid_field {
     return _pid_field($_[0], length($_[0]));
+}
+
+sub send {
+    my ($sock, $buf, $flags, $to) = @_;
+
+    if (ref($sock)) {
+        $sock = fileno($sock);
+    }
+    return _send($sock, $buf, length($buf), $flags, $to);
 }
 
 sub socket {

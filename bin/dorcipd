@@ -5,11 +5,14 @@ use warnings;
 use v5.10;
 
 use Data::Dumper;
-use Net::AX25 qw(PF_PACKET SOCK_PACKET ETH_P_AX25 is_ui_frame from_addr to_addr pid_field);
+use Net::AX25 qw(PF_PACKET SOCK_PACKET ETH_P_AX25 SOCK_DGRAM is_ui_frame from_addr to_addr pid_field info_field);
 use IO::Async::Handle;
 use IO::Async::Loop;
+use IO::Async::Socket;
 
 use DORCNet qw(DORCIP_NUM DORCIP_AX25_ADDR);
+use DORCNet::Message qw(parse_message);
+use DORCNet::Record::Neighbor;
 
 main();
 
@@ -17,10 +20,28 @@ sub main {
     our $LOOP = IO::Async::Loop->new;
 
     make_channel_monitor();
+    make_info_sender();
+
+    send_info("BLORP", "NIK", "SLARP");
 
     $LOOP->run;
 
     return 0;
+}
+
+sub make_info_sender {
+    my $sock = Net::AX25::socket(SOCK_DGRAM, DORCIP_NUM) or die "socket(AF_AX25, SOCK_DGRAM, DORCIP_NUM): $!";
+    our $LOOP;
+
+    Net::AX25::bind($sock, "KG7OEM-15") and die "bind(): $!";
+
+    our $INFO_SENDER = IO::Async::Socket->new(
+        write_handle => $sock,
+        on_write_ready => \&drain_info,
+        on_closed => sub { die "lost info sender socket" },
+    );
+
+    $LOOP->add($INFO_SENDER);
 }
 
 sub make_channel_monitor {
@@ -45,21 +66,60 @@ sub handle_monitor_channel {
     my $from = from_addr($packet);
     my $to = to_addr($packet);
 
-    say "ax0 $from -> $to";
+    say "$interface $from -> $to";
 
-    return if handle_network_info($interface, $packet);
+    if (is_network_info($interface, $packet)) {
+        handle_network_info($interface, $packet);
+    }
+}
+
+sub is_network_info {
+    my ($interface, $packet) = @_;
+
+    return 1;
+
+    my $to = to_addr($packet);
+    # say "  got: '$to' want '", DORCIP_AX25_ADDR, "'";
+    return 0 unless $to eq DORCIP_AX25_ADDR;
+
+    my $pid = pid_field($packet);
+    # say "  got: '$pid' want: '", DORCIP_NUM, "'";
+    return 0 unless pid_field($packet) == DORCIP_NUM;
+
+    return 1;
 }
 
 sub handle_network_info {
     my ($interface, $packet) = @_;
+    my $from = from_addr($packet);
+    my $info_field = info_field($packet);
+    my @message = parse_message($info_field);
+    my $version = $message[0];
 
-    my $to = to_addr($packet);
-    say "  got: '$to' want '", DORCIP_AX25_ADDR, "'";
-    return unless $to eq DORCIP_AX25_ADDR;
+    say Dumper(\@message);
+}
 
-    my $pid = pid_field($packet);
-    say "  got: '$pid' want: '", DORCIP_NUM, "'";
-    return unless pid_field($packet) == DORCIP_NUM;
+sub send_info {
+    our (@INFO_BUFFER, $INFO_SENDER, $LOOP);
 
-    say "  DORCIP";
+    say "Adding ", scalar(@_), " info messages to buffer";
+    push(@INFO_BUFFER, @_);
+    $INFO_SENDER->want_writeready(1);
+
+    return;
+}
+
+sub drain_info {
+    my ($notifier) = @_;
+    our @INFO_BUFFER;
+    my $message = shift(@INFO_BUFFER);
+    my $socket = $notifier->write_handle;
+
+    say "Sending message from info buffer";
+    Net::AX25::send($socket, $message, 0, DORCIP_AX25_ADDR) == -1 and die "send(): $!";
+
+    if (@INFO_BUFFER == 0) {
+        say "No longer interested in writeready";
+        $notifier->want_writeready(0);
+    }
 }

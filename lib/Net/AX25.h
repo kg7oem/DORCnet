@@ -1,5 +1,4 @@
 #define AX25_INT_NAME_LEN 14
-#define AX25_INFO_FIELD_LEN 256
 
 #define AX25_ADDR_SSID_MASK (1<<4) | (1<<3) | (1<<2) | (1<<1);
 #define AX25_TO_ADDR_OFFSET 1

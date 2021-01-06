@@ -228,6 +228,26 @@ CODE:
 OUTPUT:
     RETVAL
 
+int
+_send(int sockfd, char * buf, size_t buflen, int flags, char * to)
+CODE:
+    static __thread struct full_sockaddr_ax25 sockaddr;
+
+    memset(&sockaddr, 0, sizeof(struct full_sockaddr_ax25));
+    sockaddr.fsa_ax25.sax25_family = AF_AX25;
+
+    if (ax25_aton(to, &sockaddr) == -1) {
+        errno = EINVAL;
+        RETVAL = -1;
+        goto DONE;
+    }
+
+    RETVAL = sendto(sockfd, buf, buflen, flags, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+
+    DONE:
+OUTPUT:
+    RETVAL
+
 const char *
 _to_addr(const char * buf, size_t len)
 CODE:
