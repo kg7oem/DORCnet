@@ -108,16 +108,24 @@ OUTPUT:
     RETVAL
 
 const char *
-_info_field(const char * address, size_t len)
+_info_field(const char * packet, size_t len)
 CODE:
-    static __thread char buf[AX25_INFO_FIELD_LEN + 1];
-    const char * start_p = address + AX25_INFO_FIELD_OFFSET;
+    static __thread char buf[BUFSIZ];
+    const char * start_p = packet + AX25_INFO_FIELD_OFFSET;
     size_t copy_bytes = len - AX25_FCS_FIELD_OFFSET;
 
-    memset(buf, 0, AX25_INFO_FIELD_LEN + 1);
+    if (copy_bytes > BUFSIZ) {
+        errno = ENOBUFS;
+        RETVAL = NULL;
+        goto DONE;
+    }
+
+    memset(buf, 0, BUFSIZ);
     memcpy(buf, start_p, copy_bytes);
 
     RETVAL = buf;
+
+    DONE:
 OUTPUT:
     RETVAL
 
